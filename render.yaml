@@ -1,3 +1,9 @@
+# Define databases first
+databases:
+  - name: vantflow-redis
+    plan: free
+    region: oregon
+
 services:
   # Backend API + WebSocket Server
   - type: web
@@ -19,8 +25,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: REDIS_URL
-        fromService:
-          type: redis
+        fromDatabase:
           name: vantflow-redis
           property: connectionString
       - key: CORS_ORIGIN
@@ -51,8 +56,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: REDIS_URL
-        fromService:
-          type: redis
+        fromDatabase:
           name: vantflow-redis
           property: connectionString
       - key: WORKER_CONCURRENCY
@@ -93,9 +97,3 @@ services:
         value: 1:1047381509296:web:d834083441fb015a9f2775
       - key: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
         value: G-JPEWFMF61Y
-
-databases:
-  # Redis for job queue
-  - name: vantflow-redis
-    plan: free
-    region: oregon

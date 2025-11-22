@@ -2,16 +2,25 @@
 
 AI-powered automation SaaS platform for web task automation using Gemini AI and Playwright.
 
+## ✨ Modern Glassmorphic UI
+
+VantFlow features a professional, modern interface with:
+- **Glassmorphic Design**: Dark gradient backgrounds with frosted glass effects
+- **Smooth Animations**: Fade-in, slide-up, float, and glow effects throughout
+- **Responsive Design**: Mobile-first approach with Tailwind CSS
+- **Professional UX**: Icon-prefixed inputs, gradient buttons, and animated backgrounds
+- **Real-time Updates**: Live notifications and progress tracking
+
 ## 🚀 Features
 
 ### Phase 1: Foundation
 - **User Management**: Full authentication with Firebase Auth, multi-tenant organizations
 - **Project Management**: Organize automations into projects with RBAC
 - **API Keys**: Generate API keys for programmatic access
-- **Database**: Firebase Firestore (NoSQL)
+- **Database**: Firebase Firestore (NoSQL, real-time sync)
 
 ### Phase 2: Authentication & Security
-- **Secure Authentication**: Firebase Authentication with email/password
+- **Firebase Authentication**: Secure email/password authentication with ID tokens
 - **Multi-Tenancy**: Organization-based access control with automatic org creation
 - **Protected Routes**: Middleware-based route protection with Firebase ID token verification
 - **Rate Limiting**: Request throttling and security headers
@@ -35,6 +44,14 @@ AI-powered automation SaaS platform for web task automation using Gemini AI and 
 - **Webhook Processing**: Automated subscription lifecycle management
 - **Invoice Management**: Automated invoicing with payment tracking
 
+### UI/UX Design System
+- **Glassmorphism**: Backdrop blur effects with rgba transparency layers
+- **Dark Theme**: Dark gradient backgrounds (#0a0a1e → #1a1a3e → #0f0f2e)
+- **Animated Orbs**: Floating gradient orbs for depth and visual interest
+- **Custom Components**: Reusable glass cards, buttons, inputs with consistent styling
+- **Color Palette**: Blue/purple/cyan gradients with professional accents
+- **Typography**: Gradient text effects for headings and key elements
+
 ## 🛠️ Tech Stack
 
 ### Backend
@@ -53,13 +70,19 @@ AI-powered automation SaaS platform for web task automation using Gemini AI and 
 ### Frontend
 - **Framework**: Next.js 14 (App Router)
 - **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand (WebSocket, notifications) + React Query (server state)
-- **UI Components**: Headless UI + Heroicons
-- **Real-Time**: Socket.io-client
-- **HTTP Client**: Axios
-- **Notifications**: React Hot Toast
-- **Date Handling**: date-fns
+- **Styling**: Tailwind CSS with custom glassmorphic design system
+- **UI Library**: Headless UI + Heroicons
+- **State Management**: React Context (Auth) + custom hooks
+- **Real-Time**: Socket.io-client for WebSocket connections
+- **HTTP Client**: Axios with interceptors
+- **Notifications**: React Hot Toast with custom styling
+- **Date Handling**: date-fns for formatting
+- **Design System**: 
+  - Glass effects (backdrop-filter blur + rgba transparency)
+  - Custom animations (fade-in, slide-up, float, glow, shimmer)
+  - Gradient backgrounds and text effects
+  - Icon-prefixed form inputs
+  - Responsive dark theme throughout
 
 ## 📁 Project Structure
 
@@ -96,12 +119,30 @@ AI-powered automation SaaS platform for web task automation using Gemini AI and 
 ### Prerequisites
 
 - Node.js 20+
-- Firebase Project ([Create one](https://console.firebase.google.com/))
+- **Firebase Project** ([Create one](https://console.firebase.google.com/))
+  - Enable Firestore Database (Native mode)
+  - Enable Authentication (Email/Password provider)
+  - Generate Service Account Key
 - Redis (for job queue)
 - Gemini API Key ([Get one here](https://makersuite.google.com/app/apikey))
-- Stripe Account ([Sign up](https://dashboard.stripe.com/register))
+- Stripe Account ([Sign up](https://dashboard.stripe.com/register)) - for billing features
 
-### Installation
+### Quick Setup Script
+
+```bash
+# Run the automated setup script
+chmod +x setup.sh
+./setup.sh
+```
+
+This will:
+1. Install all dependencies (backend + frontend)
+2. Create environment files from templates
+3. Guide you through Firebase configuration
+4. Set up Redis connection
+5. Start all services in development mode
+
+### Manual Installation
 
 1. **Clone the repository**
    ```bash
@@ -115,21 +156,26 @@ AI-powered automation SaaS platform for web task automation using Gemini AI and 
    cp .env.example .env
    ```
    
-   Edit `.env` and add your configuration:
+   Edit `.env` and add your Firebase configuration:
    ```env
-   # Database
-   DATABASE_URL=postgresql://user:password@localhost:5432/vantflow
+   # Server
+   PORT=5000
+   NODE_ENV=development
    
-   # Auth
-   JWT_SECRET=your-super-secret-jwt-key-change-this
-   COOKIE_SECRET=your-cookie-secret-change-this
-   SESSION_EXPIRY=7d
+   # Firebase
+   FIREBASE_PROJECT_ID=your-project-id
+   FIREBASE_SERVICE_ACCOUNT_KEY={"type":"service_account",...}  # JSON string
    
    # Gemini AI
    GEMINI_API_KEY=your_gemini_api_key
    
    # Redis
    REDIS_URL=redis://localhost:6379
+   
+   # Stripe (Optional - for billing features)
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   STRIPE_PUBLISHABLE_KEY=pk_test_...
    
    # Storage
    STORAGE_TYPE=local
@@ -138,6 +184,8 @@ AI-powered automation SaaS platform for web task automation using Gemini AI and 
    # Worker
    WORKER_CONCURRENCY=2
    ```
+   
+   > **Note**: See [FIREBASE_MIGRATION.md](./FIREBASE_MIGRATION.md) for detailed Firebase setup instructions
 
 3. **Set up frontend environment variables**
    ```bash
@@ -162,12 +210,13 @@ AI-powered automation SaaS platform for web task automation using Gemini AI and 
    npm install
    ```
 
-5. **Set up database**
-   ```bash
-   cd backend
-   npx prisma migrate dev --name init
-   npx prisma generate
-   ```
+5. **Set up Firebase Firestore**
+   
+   See [FIREBASE_MIGRATION.md](./FIREBASE_MIGRATION.md) for:
+   - Creating Firestore database
+   - Setting up security rules
+   - Creating composite indexes
+   - Generating service account credentials
 
 6. **Start Redis**
    ```bash
@@ -217,75 +266,100 @@ npm test
 ## 📡 API Endpoints
 
 ### Authentication
-- `POST /auth/register` - Register new user (creates organization)
-- `POST /auth/login` - Login user (returns JWT in cookie)
-- `POST /auth/logout` - Logout user (clears cookie)
-- `GET /auth/session` - Get current session
+- `POST /api/auth/register` - Register new user (creates Firebase user + Firestore org)
+- `POST /api/auth/login` - Login user (returns Firebase custom token)
+- `POST /api/auth/logout` - Logout user (revokes refresh tokens)
+- `GET /api/auth/session` - Get current session with user + org data
+
+### Users
+- `GET /api/users/me` - Get current user profile with projects and API keys
+- `PUT /api/users/me` - Update user profile (name, password)
+- `POST /api/users/api-keys` - Create API key
+- `DELETE /api/users/api-keys/:id` - Delete API key
 
 ### Projects
-- `POST /projects` - Create project
-- `GET /projects` - List user's projects
-- `GET /projects/:id` - Get project details
-- `PUT /projects/:id` - Update project
-- `DELETE /projects/:id` - Delete project
+- `POST /api/projects` - Create project
+- `GET /api/projects` - List user's projects
+- `GET /api/projects/:id` - Get project details
+- `PUT /api/projects/:id` - Update project
+- `DELETE /api/projects/:id` - Delete project
 
 ### Plans
-- `GET /projects/:projectId/plans` - List plans (paginated, filterable by status)
-- `GET /plans/:id` - Get plan with runs
-- `POST /projects/:projectId/plans` - Create plan (Zod validation)
-- `PUT /plans/:id` - Update plan (draft only)
-- `POST /plans/:id/approve` - Approve plan (admin only)
-- `DELETE /plans/:id` - Delete plan
+- `GET /api/projects/:projectId/plans` - List plans (paginated, filterable by status)
+- `GET /api/plans/:id` - Get plan with runs
+- `POST /api/projects/:projectId/plans` - Create plan (Zod validation)
+- `PUT /api/plans/:id` - Update plan (draft only)
+- `POST /api/plans/:id/approve` - Approve plan (admin only)
+- `DELETE /api/plans/:id` - Delete plan
 
 ### Runs
-- `GET /projects/:projectId/runs` - List runs (paginated, filterable by status)
-- `GET /runs/:id` - Get run with plan and logs
-- `GET /runs/:id/logs` - Get run logs (paginated, filterable by level)
-- `POST /plans/:id/run` - Start run (creates job in queue)
-- `POST /runs/:id/cancel` - Cancel run
-- `GET /projects/:projectId/runs/stats` - Get run statistics
+- `GET /api/projects/:projectId/runs` - List runs (paginated, filterable by status)
+- `GET /api/runs/:id` - Get run with plan and logs
+- `GET /api/runs/:id/logs` - Get run logs (paginated, filterable by level)
+- `POST /api/plans/:id/run` - Start run (creates job in queue)
+- `POST /api/runs/:id/cancel` - Cancel run
+- `GET /api/projects/:projectId/runs/stats` - Get run statistics
 
 ### Chat
-- `GET /projects/:projectId/chat` - Get chat history
-- `POST /projects/:projectId/chat` - Send message (generates plan via AI)
-- `DELETE /projects/:projectId/chat` - Clear chat history
+- `GET /api/projects/:projectId/chat` - Get chat history
+- `POST /api/projects/:projectId/chat` - Send message (generates plan via AI)
+- `DELETE /api/projects/:projectId/chat` - Clear chat history
+
+### Billing (Optional - requires Stripe setup)
+- `GET /api/billing/subscription` - Get current subscription and plan
+- `GET /api/billing/usage` - Get usage stats for current period
+- `GET /api/billing/quota` - Get quota limits and remaining
+- `POST /api/billing/checkout` - Create Stripe Checkout session
+- `POST /api/billing/portal` - Create Stripe Customer Portal session
+- `POST /api/billing/webhook` - Stripe webhook endpoint (for automation)
 
 ## 🎯 User Workflow
 
-### 1. Login → Dashboard
-1. User logs in with credentials
-2. Dashboard shows project stats and recent activity
-3. Click "Create Project" or select existing project
+### 1. Sign Up / Login
+1. Navigate to signup page with professional glassmorphic design
+2. Create account with email/password (Firebase Auth)
+3. Auto-creates organization in Firestore
+4. Redirects to dashboard with animated glass cards
+
+### 2. Dashboard Overview
+1. View project statistics with animated counters
+2. See recent projects in glass cards
+3. Real-time updates via WebSocket
+4. Access profile settings and API keys
 
 ### 2. Project → Chat with AI
-1. Navigate to project detail page
-2. Select "Chat" tab
+1. Navigate to project detail page (glassmorphic tabs)
+2. Select "Chat" tab with message icon
 3. Type natural language automation request:
    - "Go to example.com and take a screenshot"
    - "Fill out the contact form on acme.com with test data"
    - "Extract all product titles from shop.example.com"
-4. AI generates structured plan with tasks
-5. Plan preview shown in chat message
+4. AI (Gemini 1.5 Flash) generates structured plan with tasks
+5. Plan preview shown in chat message with glass styling
 
 ### 3. Review Plan → Approve
 1. Switch to "Plans" tab
-2. View generated plan with task breakdown
+2. View generated plan in glass card with task breakdown
 3. Review each task's parameters (URL, selectors, values, retry policies)
-4. Click "Approve Plan" (admin only)
-5. Plan status changes to `approved`
+4. Click "Approve Plan" button (admin only)
+5. Plan status changes to `approved` with animated badge
 
 ### 4. Execute Plan → Monitor Progress
-1. Click "Run Plan" button
-2. Run is queued and worker picks it up
-3. Switch to "Runs" tab to monitor
-4. View real-time progress (progress bar, live logs, screenshots)
-5. Notifications show run completion/failure
+1. Click "Run Plan" gradient button
+2. Run is queued in Redis and worker picks it up
+3. Switch to "Runs" tab to monitor with live updates
+4. View real-time progress:
+   - Animated progress bar
+   - Live streaming logs
+   - Screenshot previews in glass cards
+5. Toast notifications show run completion/failure
 
 ### 5. View Results
-1. Click run in list to view details
-2. View execution logs with timestamps
-3. View artifacts (screenshots, extracted data)
-4. Review duration and error messages (if failed)
+1. Click run in list to view details in modal
+2. View execution logs with timestamps and color coding
+3. Download artifacts (screenshots, extracted data)
+4. Review duration, success rate, and error messages
+5. Share or re-run successful automations
 
 ## 🤖 AI Agent System
 
@@ -338,33 +412,96 @@ See [PHASE3_README.md](./PHASE3_README.md) for detailed task type documentation.
 
 See [PHASE3_README.md](./PHASE3_README.md) for complete WebSocket documentation.
 
-## 🗄️ Database Schema
+## 🗄️ Database Schema (Firebase Firestore)
 
-### Core Models (Phase 1 & 2)
-- **User**: User accounts with authentication
-- **Organization**: Multi-tenant support for teams
-- **Project**: Automation projects
-- **ApiKey**: API keys for programmatic access
-- **Session**: JWT session management
+### Collections
 
-### Phase 3 Models
-- **Plan**: Automation plans with JSON tasks (draft/approved/running/completed/failed)
-- **Run**: Execution runs with status tracking (queued/running/completed/failed/cancelled)
-- **LogEntry**: Execution logs with levels (info/warn/error/debug)
-- **ChatMessage**: AI conversation history
-- **ActivityLog**: Audit trail for plan/run actions
-- **ProjectCollaborator**: RBAC with roles (owner/admin/member/viewer)
+#### users
+- `id` (string) - Firebase Auth UID
+- `email` (string) - User email
+- `name` (string) - Display name
+- `organizationId` (string) - Reference to organization
+- `role` (string) - User role (owner/admin/member)
+- `createdAt` (timestamp)
+- `updatedAt` (timestamp)
+
+#### organizations
+- `id` (string) - Auto-generated
+- `name` (string) - Organization name
+- `ownerId` (string) - Reference to owner user
+- `createdAt` (timestamp)
+- `updatedAt` (timestamp)
+
+#### projects
+- `id` (string) - Auto-generated
+- `name` (string) - Project name
+- `description` (string) - Optional description
+- `userId` (string) - Owner user ID
+- `organizationId` (string) - Organization ID
+- `createdAt` (timestamp)
+- `updatedAt` (timestamp)
+
+#### plans
+- `id` (string) - Auto-generated
+- `projectId` (string) - Parent project
+- `name` (string) - Plan name
+- `description` (string) - AI-generated description
+- `tasks` (array) - JSON task definitions
+- `status` (string) - draft/approved/running/completed/failed
+- `createdBy` (string) - User ID
+- `createdAt` (timestamp)
+- `updatedAt` (timestamp)
+
+#### runs
+- `id` (string) - Auto-generated
+- `planId` (string) - Reference to plan
+- `projectId` (string) - Reference to project
+- `status` (string) - queued/running/completed/failed/cancelled
+- `progress` (number) - 0-100
+- `result` (object) - Execution results and artifacts
+- `error` (object) - Error details if failed
+- `startedAt` (timestamp)
+- `completedAt` (timestamp)
+- `createdAt` (timestamp)
+
+#### chats
+- `id` (string) - Auto-generated
+- `projectId` (string) - Reference to project
+- `role` (string) - user/assistant/system
+- `content` (string) - Message content
+- `metadata` (object) - Additional data (plan references, etc.)
+- `createdAt` (timestamp)
+
+#### apiKeys
+- `id` (string) - Auto-generated
+- `userId` (string) - Owner user ID
+- `key` (string) - Hashed API key
+- `name` (string) - Optional key name
+- `createdAt` (timestamp)
+- `lastUsedAt` (timestamp)
+
+#### subscriptions (Optional - for billing)
+- `id` (string) - Stripe subscription ID
+- `organizationId` (string) - Reference to organization
+- `planTier` (string) - free/pro/business/enterprise
+- `status` (string) - active/canceled/past_due
+- `currentPeriodStart` (timestamp)
+- `currentPeriodEnd` (timestamp)
+- `canceledAt` (timestamp)
+
+> **Note**: Firestore is a NoSQL database. See [FIREBASE_MIGRATION.md](./FIREBASE_MIGRATION.md) for indexing strategies and security rules.
 
 ## 🔒 Security
 
-- **Password hashing** with bcrypt (10 salt rounds)
-- **JWT authentication** with 7-day expiration
-- **HTTP-only cookies** for secure session storage
-- **CORS protection** configured for frontend
+- **Firebase Authentication** with ID token verification
+- **Service Account** for secure server-side operations
+- **Firestore Security Rules** for data access control
+- **HTTP-only cookies** for session management (optional)
+- **CORS protection** configured for frontend origin
 - **Helmet.js** for security headers
-- **Rate limiting** on auth endpoints
+- **Rate limiting** on auth endpoints (express-rate-limit)
 - **Input validation** with Zod schemas
-- **SQL injection protection** via Prisma ORM
+- **NoSQL injection protection** via Firebase SDK
 - **Comprehensive test coverage** for auth flows
 
 ## 🚀 Deployment
@@ -394,16 +531,33 @@ npm start
 ### Environment Variables for Production
 
 Make sure to set secure values for:
-- `JWT_SECRET` - Use a strong random string (32+ characters)
-- `COOKIE_SECRET` - Use a strong random string
-- `DATABASE_URL` - Production database connection
-- `REDIS_URL` - Production Redis connection
+- `FIREBASE_PROJECT_ID` - Your Firebase project ID
+- `FIREBASE_SERVICE_ACCOUNT_KEY` - Service account JSON (as string)
+- `REDIS_URL` - Production Redis connection (consider Redis Cloud)
 - `GEMINI_API_KEY` - Your Gemini API key
 - `NODE_ENV=production`
 - `STORAGE_TYPE` - 's3' recommended for production
 - `S3_BUCKET`, `S3_REGION`, `S3_ACCESS_KEY`, `S3_SECRET_KEY` - If using S3
+- `STRIPE_SECRET_KEY` - Production Stripe key (if using billing)
+- `STRIPE_WEBHOOK_SECRET` - Production webhook secret
+
+### Firebase Production Setup
+
+1. Enable production Firestore security rules
+2. Set up composite indexes for queries
+3. Configure Firebase Authentication production settings
+4. Set up monitoring and alerts in Firebase Console
+
+See [FIREBASE_MIGRATION.md](./FIREBASE_MIGRATION.md) for production deployment checklist.
 
 ## 📚 Documentation
+
+- **[FIREBASE_MIGRATION.md](./FIREBASE_MIGRATION.md)**: Complete Firebase setup guide
+  - Project creation and configuration
+  - Firestore security rules
+  - Service account setup
+  - Data migration strategies
+  - Production deployment checklist
 
 - **[PHASE3_README.md](./PHASE3_README.md)**: Detailed Phase 3 documentation
   - Complete architecture overview
@@ -411,7 +565,33 @@ Make sure to set secure values for:
   - WebSocket events reference
   - API endpoints reference
   - Troubleshooting guide
-  - Next steps and pending features
+
+- **[docs/API.md](./docs/API.md)**: Complete API reference
+- **[docs/BILLING.md](./docs/BILLING.md)**: Billing system documentation
+- **[docs/SETUP.md](./docs/SETUP.md)**: Detailed setup instructions
+
+## 🎨 UI Components
+
+### Reusable Classes
+- `.card-glass` - Glass card with backdrop blur and border
+- `.btn-primary` - Primary gradient button with animations
+- `.btn-glass` - Transparent glass button
+- `.input-glass` - Glass input field with focus effects
+- `.glass` / `.glass-strong` / `.glass-dark` - Glass utility classes
+- `.text-gradient` - Gradient text effect
+
+### Animations
+- `animate-fade-in` - Fade in (0.5s)
+- `animate-slide-up` - Slide up from bottom (0.5s)
+- `animate-scale-in` - Scale in (0.3s)
+- `animate-float` - Float effect (3s infinite)
+- `animate-glow` - Glow effect (2s alternate)
+
+### Color Palette
+- Primary: Blue (#0ea5e9 → #0c4a6e)
+- Accent: Purple (#a78bfa)
+- Highlight: Cyan (#00f2fe)
+- Background: Dark gradient (#0a0a1e → #1a1a3e → #0f0f2e)
 
 ## 📝 License
 
@@ -429,4 +609,8 @@ For issues and questions, please open an issue in the repository.
 
 **Phase 1: Foundation** ✅  
 **Phase 2: Auth System** ✅  
-**Phase 3: CMS Core & AI Automation** ✅
+**Phase 3: CMS Core & AI Automation** ✅  
+**Phase 4: Billing & Subscriptions** ✅  
+**UI/UX: Glassmorphic Design** ✅
+
+Built with ❤️ using Firebase, Next.js, and Gemini AI

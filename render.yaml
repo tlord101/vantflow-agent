@@ -1,0 +1,101 @@
+services:
+  # Backend API + WebSocket Server
+  - type: web
+    name: vantflow-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: vantflow-redis
+          property: connectionString
+      - key: CORS_ORIGIN
+        sync: false
+      - key: STORAGE_TYPE
+        value: local
+      - key: ARTIFACTS_PATH
+        value: /tmp/vantflow-artifacts
+      - key: WORKER_CONCURRENCY
+        value: 2
+    healthCheckPath: /health
+
+  # Background Worker
+  - type: worker
+    name: vantflow-worker
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && node dist/queue/runWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: vantflow-redis
+          property: connectionString
+      - key: WORKER_CONCURRENCY
+        value: 2
+      - key: MAX_BROWSERS
+        value: 3
+      - key: ARTIFACTS_PATH
+        value: /tmp/vantflow-artifacts
+
+  # Frontend (Next.js)
+  - type: web
+    name: vantflow-frontend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    startCommand: cd frontend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_WS_URL
+        sync: false
+      - key: NEXT_PUBLIC_FIREBASE_API_KEY
+        value: AIzaSyAwi-x6zG01qxonURhflnGPTz6fhtFQVUw
+      - key: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+        value: vantflowv1.firebaseapp.com
+      - key: NEXT_PUBLIC_FIREBASE_DATABASE_URL
+        value: https://vantflowv1-default-rtdb.firebaseio.com
+      - key: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        value: vantflowv1
+      - key: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+        value: vantflowv1.firebasestorage.app
+      - key: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+        value: 1047381509296
+      - key: NEXT_PUBLIC_FIREBASE_APP_ID
+        value: 1:1047381509296:web:d834083441fb015a9f2775
+      - key: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+        value: G-JPEWFMF61Y
+
+databases:
+  # Redis for job queue
+  - name: vantflow-redis
+    plan: free
+    region: oregon

@@ -1,0 +1,322 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String        @id @default(uuid())
+  email          String        @unique
+  password       String
+  name           String?
+  role           String        @default("user") // user, admin, superadmin
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  apiKeys        ApiKey[]
+  sessions       Session[]
+  projects       Project[]
+  plans          Plan[]
+  runs           Run[]
+  collaborations ProjectCollaborator[]
+}
+
+model Organization {
+  id              String    @id @default(uuid())
+  name            String
+  slug            String    @unique
+  stripeCustomerId String?  @unique
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  users           User[]
+  projects        Project[]
+  subscriptions   Subscription[]
+  invoices        InvoiceRecord[]
+  billingEvents   BillingEvent[]
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Project {
+  id             String   @id @default(uuid())
+  userId         String
+  name           String
+  description    String?
+  settings       Json?    // Project settings, webhooks, etc.
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  
+  user           User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plans          Plan[]
+  runs           Run[]
+  collaborators  ProjectCollaborator[]
+  chatMessages   ChatMessage[]
+  activityLogs   ActivityLog[]
+  
+  @@index([userId])
+  @@index([organizationId])
+}
+
+model ProjectCollaborator {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String
+  role      String   // owner, admin, collaborator, viewer
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([projectId, userId])
+  @@index([userId])
+}
+
+model Plan {
+  id          String   @id @default(uuid())
+  projectId   String
+  createdBy   String
+  name        String
+  description String?
+  jsonPlan    Json     // Detailed tasks structure
+  status      String   @default("draft") // draft, approved, running, completed, failed
+  estimatedCost Float? // Optional cost estimate
+  estimatedTime Int?   // Estimated runtime in seconds
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  approvedAt  DateTime?
+  approvedBy  String?
+  
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User     @relation(fields: [createdBy], references: [id])
+  runs        Run[]
+  
+  @@index([projectId])
+  @@index([createdBy])
+  @@index([status])
+}
+
+model Run {
+  id          String    @id @default(uuid())
+  planId      String
+  projectId   String
+  createdBy   String
+  status      String    @default("queued") // queued, running, completed, failed, cancelled
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  duration    Int?      // Duration in milliseconds
+  result      Json?     // Final result data
+  errorMessage String?
+  artifacts   Json?     // Array of artifact references
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  plan        Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  creator     User      @relation(fields: [createdBy], references: [id])
+  logs        LogEntry[]
+  
+  @@index([planId])
+  @@index([projectId])
+  @@index([createdBy])
+  @@index([status])
+}
+
+model LogEntry {
+  id        String   @id @default(uuid())
+  runId     String
+  timestamp DateTime @default(now())
+  level     String   // info, warn, error, debug
+  message   String   @db.Text
+  meta      Json?    // Additional metadata
+  
+  run       Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  
+  @@index([runId, timestamp])
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  projectId String
+  role      String   // user, assistant, system
+  content   String   @db.Text
+  meta      Json?    // Attachments, context, etc.
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId, createdAt])
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  projectId String
+  userId    String?
+  action    String   // plan_created, plan_approved, run_started, run_completed, etc.
+  entity    String   // plan, run, project, etc.
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId, createdAt])
+}
+
+// Legacy execution model - keeping for migration compatibility
+model Execution {
+  id         String   @id @default(uuid())
+  projectId  String
+  status     String   @default("pending")
+  logs       String?
+  result     Json?
+  createdAt  DateTime @default(now())
+  completedAt DateTime?
+}
+
+// Billing Models
+model Subscription {
+  id                 String   @id @default(uuid())
+  organizationId     String
+  stripeSubId        String?  @unique
+  stripePriceId      String?  // Stripe price ID for the plan
+  planTier           String   @default("free") // free, pro, business, enterprise
+  status             String   @default("active") // active, past_due, canceled, trialing, unpaid, incomplete
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  trialEndsAt        DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  canceledAt         DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  usageRecords       UsageRecord[]
+  
+  @@index([organizationId])
+  @@index([status])
+}
+
+model UsageRecord {
+  id             String   @id @default(uuid())
+  subscriptionId String
+  organizationId String
+  projectId      String?
+  metric         String   // gemini_tokens, run_minutes, screenshots, api_calls
+  quantity       BigInt
+  periodStart    DateTime
+  periodEnd      DateTime
+  metadata       Json?    // Additional context (model used, etc.)
+  createdAt      DateTime @default(now())
+  
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  
+  @@unique([subscriptionId, metric, periodStart])
+  @@index([subscriptionId, metric, periodStart])
+  @@index([organizationId, metric, periodStart])
+  @@index([projectId])
+}
+
+model InvoiceRecord {
+  id              String   @id @default(uuid())
+  organizationId  String
+  subscriptionId  String?
+  stripeInvoiceId String?  @unique
+  invoiceNumber   String?  @unique
+  amountCents     Int
+  taxCents        Int      @default(0)
+  totalCents      Int
+  currency        String   @default("usd")
+  status          String   // draft, open, paid, void, uncollectible
+  description     String?  @db.Text
+  lineItems       Json?    // Detailed line items
+  pdfUrl          String?
+  hostedUrl       String?  // Stripe hosted invoice page
+  dueDate         DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  
+  @@index([organizationId, status])
+  @@index([status, dueDate])
+}
+
+model BillingEvent {
+  id              String   @id @default(uuid())
+  organizationId  String?
+  stripeEventId   String?  @unique
+  type            String   // invoice.paid, subscription.updated, payment_failed, etc.
+  payload         Json
+  processed       Boolean  @default(false)
+  processedAt     DateTime?
+  errorMessage    String?  @db.Text
+  retryCount      Int      @default(0)
+  createdAt       DateTime @default(now())
+  
+  organization    Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  
+  @@index([organizationId])
+  @@index([processed, createdAt])
+  @@index([type, createdAt])
+}
+
+model PaymentMethod {
+  id              String   @id @default(uuid())
+  organizationId  String
+  stripePaymentMethodId String @unique
+  type            String   // card, bank_account, etc.
+  isDefault       Boolean  @default(false)
+  last4           String?
+  brand           String?  // visa, mastercard, etc.
+  expiryMonth     Int?
+  expiryYear      Int?
+  billingEmail    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([organizationId])
+}
+
+model BillingCredit {
+  id              String   @id @default(uuid())
+  organizationId  String
+  amountCents     Int
+  remainingCents  Int
+  currency        String   @default("usd")
+  reason          String   @db.Text
+  expiresAt       DateTime?
+  appliedToInvoiceId String?
+  createdBy       String?  // Admin user who created the credit
+  createdAt       DateTime @default(now())
+  
+  @@index([organizationId, expiresAt])
+}
